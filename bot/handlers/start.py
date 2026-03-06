@@ -3,12 +3,11 @@ import logging
 from typing import Any
 
 from aiogram import Router, F
-from aiogram.filters import CommandStart, Command
+from aiogram.enums import ChatAction
+from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 
 from bot.keyboards import (
-    privacy_keyboard,
-    welcome_keyboard,
     relationship_status_keyboard,
     attachment_question_keyboard,
     diary_offer_keyboard,
@@ -19,7 +18,7 @@ from services.onboarding import (
     get_step_message,
     process_onboarding_answer,
 )
-from utils.constants import PRIVACY_MESSAGE, ONBOARDING_WELCOME, ATTACHMENT_QUESTIONS
+from utils.constants import ONBOARDING_WELCOME
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -28,47 +27,23 @@ router = Router()
 @router.message(CommandStart())
 async def cmd_start(message: Message):
     user_id = str(message.from_user.id)
+    await message.answer_chat_action(ChatAction.TYPING)
     user = await get_or_create_user(user_id)
 
     if user.get("onboarding_complete"):
         await message.answer("С возвращением! Расскажи что тебя беспокоит.")
         return
 
-    if not user.get("privacy_accepted"):
-        await message.answer(PRIVACY_MESSAGE, reply_markup=privacy_keyboard())
-        return
-
-    onboarding_state.start(user_id)
-    await message.answer(ONBOARDING_WELCOME, reply_markup=welcome_keyboard(), parse_mode="HTML")
-
-
-@router.callback_query(F.data == "privacy_accept")
-async def privacy_accepted(callback: CallbackQuery):
-    user_id = str(callback.from_user.id)
     await update_static_field(user_id, "privacy_accepted", True)
-    await callback.answer("Принято!")
-
     onboarding_state.start(user_id)
-    await callback.message.answer(
-        ONBOARDING_WELCOME, reply_markup=welcome_keyboard(), parse_mode="HTML"
-    )
-
-
-@router.callback_query(F.data == "onboarding_start")
-async def onboarding_start_handler(callback: CallbackQuery):
-    user_id = str(callback.from_user.id)
-    await callback.answer()
-
-    onboarding_state.advance(user_id)
-    step = onboarding_state.current_step(user_id)
-    if step:
-        await _send_onboarding_step(callback.message, user_id, step)
+    await message.answer(ONBOARDING_WELCOME)
 
 
 @router.callback_query(F.data.startswith("rel_"))
 async def relationship_status_handler(callback: CallbackQuery):
     user_id = str(callback.from_user.id)
     await callback.answer()
+    await callback.message.answer_chat_action(ChatAction.TYPING)
 
     mapping = {
         "rel_yes": "Да",
@@ -84,6 +59,7 @@ async def relationship_status_handler(callback: CallbackQuery):
 async def attachment_answer_handler(callback: CallbackQuery):
     user_id = str(callback.from_user.id)
     await callback.answer()
+    await callback.message.answer_chat_action(ChatAction.TYPING)
 
     parts = callback.data.split("_")
     if len(parts) >= 3:
@@ -102,6 +78,7 @@ async def attachment_answer_handler(callback: CallbackQuery):
 async def diary_offer_handler(callback: CallbackQuery):
     user_id = str(callback.from_user.id)
     await callback.answer()
+    await callback.message.answer_chat_action(ChatAction.TYPING)
 
     if callback.data == "diary_yes":
         await update_static_field(user_id, "diary_enabled", True)
@@ -128,15 +105,11 @@ async def handle_onboarding_text(message: Message) -> bool:
 
     if step is None:
         user = await get_or_create_user(user_id)
-        if not user.get("privacy_accepted"):
-            await message.answer(PRIVACY_MESSAGE, reply_markup=privacy_keyboard())
-            return True
         if not user.get("onboarding_complete"):
             onboarding_state.start(user_id)
-            onboarding_state.advance(user_id)
-            onboarding_state.advance(user_id)
             step = onboarding_state.current_step(user_id)
             if step:
+                await message.answer_chat_action(ChatAction.TYPING)
                 await _send_onboarding_step(message, user_id, step)
                 return True
         return False
@@ -145,6 +118,7 @@ async def handle_onboarding_text(message: Message) -> bool:
     if has_crisis_markers(message.text or ""):
         return False
 
+    await message.answer_chat_action(ChatAction.TYPING)
     await _process_step_and_advance(message, user_id, step, message.text or "")
     return True
 
@@ -204,8 +178,8 @@ async def _finish_onboarding(message: Message, user_id: str):
 
     user = await get_or_create_user(user_id)
     name = user.get("name", "")
-    greeting = f"Рад познакомиться, {name}!" if name else "Рад познакомиться!"
+    greeting = f"Отлично, {name}!" if name else "Отлично!"
     await message.answer(
-        f"{greeting} Если что-то поменяется — просто напиши мне, я обновлю.\n\n"
-        "Отлично. Расскажи — что тебя беспокоит прямо сейчас?"
+        f"{greeting} Теперь я знаю тебя немного лучше.\n\n"
+        "Расскажи — что тебя беспокоит прямо сейчас?"
     )

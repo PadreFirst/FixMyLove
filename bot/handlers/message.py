@@ -3,6 +3,7 @@ import io
 import logging
 
 from aiogram import Router, F, Bot
+from aiogram.enums import ChatAction
 from aiogram.types import Message
 
 from config import ADMIN_USER_IDS, RESET_PHRASE
@@ -23,9 +24,10 @@ async def handle_voice(message: Message, bot: Bot):
     user = await get_or_create_user(user_id)
 
     if not user.get("onboarding_complete"):
-        await message.answer("Давай сначала познакомимся! Напиши /start")
+        await message.answer("Давай сначала познакомимся — напиши /start")
         return
 
+    await message.answer_chat_action(ChatAction.TYPING)
     try:
         file = await bot.get_file(message.voice.file_id)
         data = io.BytesIO()
@@ -55,9 +57,10 @@ async def handle_photo(message: Message, bot: Bot):
     user = await get_or_create_user(user_id)
 
     if not user.get("onboarding_complete"):
-        await message.answer("Давай сначала познакомимся! Напиши /start")
+        await message.answer("Давай сначала познакомимся — напиши /start")
         return
 
+    await message.answer_chat_action(ChatAction.TYPING)
     caption = message.caption or ""
     text = f"[скриншот переписки] {caption}".strip()
 
@@ -92,9 +95,10 @@ async def handle_text(message: Message):
             if response:
                 await message.answer(response, parse_mode="HTML")
             return
-        await message.answer("Давай сначала познакомимся! Напиши /start")
+        await message.answer("Давай сначала познакомимся — напиши /start")
         return
 
+    await message.answer_chat_action(ChatAction.TYPING)
     response = await process_message(user_id, message.text or "")
     if response:
         await message.answer(response, parse_mode="HTML")

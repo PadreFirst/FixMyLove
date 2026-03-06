@@ -22,7 +22,7 @@ class OnboardingState:
       → attachment_q1..q5 → diary_offer → (diary_schedule) → complete
     """
 
-    STEPS_BASE = ["privacy", "welcome", "name", "age", "relationship_status"]
+    STEPS_BASE = ["name", "age", "relationship_status"]
     STEPS_DATING = ["partner_name", "partner_age", "duration", "note"]
     STEPS_BROKE_UP = ["breakup_note"]
     STEPS_ATTACHMENT = ["att_q1", "att_q2", "att_q3", "att_q4", "att_q5"]
@@ -95,11 +95,11 @@ def get_step_message(step: str, user: dict[str, Any] | None = None, q_index: int
     messages = {
         "name": "Как тебя зовут?",
         "age": "Сколько тебе лет?",
-        "partner_name": "Как зовут твою вторую половину?",
-        "partner_age": "Сколько ей/ему лет?",
+        "partner_name": "Как зовут твою половинку?",
+        "partner_age": "А сколько ей/ему лет?",
         "duration": "Сколько лет вы вместе?",
-        "note": "Опиши ваши отношения одним предложением",
-        "breakup_note": "Как давно расстались? И ты хочешь разобраться в том что было — или думаешь о возможном воссоединении?",
+        "note": "Расскажи в паре предложений о ваших отношениях — что сейчас беспокоит?",
+        "breakup_note": "Как давно расстались? Хочешь разобраться в том что было — или думаешь о воссоединении?",
     }
 
     if step in messages:
@@ -112,9 +112,9 @@ def get_step_message(step: str, user: dict[str, Any] | None = None, q_index: int
 
     if step == "diary_offer":
         return (
-            "Последнее — дневник. После каждой нашей сессии я буду молча записывать "
-            "туда ключевые выводы. Ты можешь добавлять записи сам в любой момент.\n\n"
-            "Хочешь чтобы я напоминал тебе вести дневник?"
+            "Последнее — после каждой сессии я записываю ключевые выводы в твой дневник. "
+            "Ты тоже можешь добавлять записи в любой момент.\n\n"
+            "Напоминать тебе вести дневник?"
         )
 
     return None

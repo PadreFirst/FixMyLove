@@ -2,18 +2,6 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from utils.constants import ATTACHMENT_QUESTIONS
 
 
-def privacy_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Понятно, продолжаем", callback_data="privacy_accept")]
-    ])
-
-
-def welcome_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Давай знакомиться", callback_data="onboarding_start")]
-    ])
-
-
 def relationship_status_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Да", callback_data="rel_yes")],
@@ -51,10 +39,3 @@ def diary_offer_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
-def delete_data_confirm_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="Да, удалить всё", callback_data="delete_confirm"),
-            InlineKeyboardButton(text="Отмена", callback_data="delete_cancel"),
-        ]
-    ])
