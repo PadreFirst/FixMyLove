@@ -5,7 +5,7 @@ import logging
 from aiogram import Router, F, Bot
 from aiogram.types import Message
 
-from config import ADMIN_USER_ID, RESET_PHRASE
+from config import ADMIN_USER_IDS, RESET_PHRASE
 from db.operations import get_or_create_user, delete_user
 from services.pipeline import process_message
 from bot.handlers.start import handle_onboarding_text
@@ -72,7 +72,7 @@ async def handle_text(message: Message):
     user_id = str(message.from_user.id)
     text = (message.text or "").strip()
 
-    if text == RESET_PHRASE and ADMIN_USER_ID and user_id == ADMIN_USER_ID:
+    if text == RESET_PHRASE and user_id in ADMIN_USER_IDS:
         await delete_user(user_id)
         onboarding_state.cleanup(user_id)
         logger.info("Admin %s triggered full reset", user_id)

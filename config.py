@@ -7,7 +7,9 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "fixmylove")
-ADMIN_USER_ID = os.getenv("ADMIN_USER_ID", "")
+ADMIN_USER_IDS: set[str] = {
+    uid.strip() for uid in os.getenv("ADMIN_USER_ID", "").split(",") if uid.strip()
+}
 RESET_PHRASE = "##сброс"
 
 DEBOUNCE_SECONDS = 3
