@@ -7,33 +7,38 @@ from db.models import StaticProfile, empty_dynamic, new_session_dynamic, _utcnow
 from config import SLIDING_WINDOW_SIZE, SESSION_TIMEOUT_HOURS
 
 
-async def get_or_create_user(user_id: str) -> dict[str, Any]:
+def _uid(user_id: int | str) -> str:
+    return str(user_id)
+
+
+async def get_or_create_user(user_id: int | str) -> dict[str, Any]:
+    uid = _uid(user_id)
     db = get_db()
-    doc = await db.users.find_one({"user_id": user_id})
+    doc = await db.users.find_one({"user_id": uid})
     if doc:
         return doc
-    profile = StaticProfile(user_id=user_id)
+    profile = StaticProfile(user_id=uid)
     data = profile.model_dump()
     data["dynamic"] = empty_dynamic()
     await db.users.insert_one(data)
-    return await db.users.find_one({"user_id": user_id})
+    return await db.users.find_one({"user_id": uid})
 
 
-async def get_user(user_id: str) -> dict[str, Any] | None:
-    return await get_db().users.find_one({"user_id": user_id})
+async def get_user(user_id: int | str) -> dict[str, Any] | None:
+    return await get_db().users.find_one({"user_id": _uid(user_id)})
 
 
-async def update_user(user_id: str, update: dict[str, Any]):
-    await get_db().users.update_one({"user_id": user_id}, {"$set": update})
+async def update_user(user_id: int | str, update: dict[str, Any]):
+    await get_db().users.update_one({"user_id": _uid(user_id)}, {"$set": update})
 
 
-async def update_static_field(user_id: str, field: str, value: Any):
-    await get_db().users.update_one({"user_id": user_id}, {"$set": {field: value}})
+async def update_static_field(user_id: int | str, field: str, value: Any):
+    await get_db().users.update_one({"user_id": _uid(user_id)}, {"$set": {field: value}})
 
 
-async def update_dynamic_field(user_id: str, field: str, value: Any):
+async def update_dynamic_field(user_id: int | str, field: str, value: Any):
     await get_db().users.update_one(
-        {"user_id": user_id}, {"$set": {f"dynamic.{field}": value}}
+        {"user_id": _uid(user_id)}, {"$set": {f"dynamic.{field}": value}}
     )
 
 
