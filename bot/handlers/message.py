@@ -5,9 +5,11 @@ import logging
 from aiogram import Router, F, Bot
 from aiogram.types import Message
 
-from db.operations import get_or_create_user
+from config import ADMIN_USER_ID, RESET_PHRASE
+from db.operations import get_or_create_user, delete_user
 from services.pipeline import process_message
 from bot.handlers.start import handle_onboarding_text
+from services.onboarding import onboarding_state
 from ai.gemini import transcribe_voice
 
 logger = logging.getLogger(__name__)
@@ -68,6 +70,15 @@ async def handle_photo(message: Message, bot: Bot):
 async def handle_text(message: Message):
     """Main text message handler."""
     user_id = str(message.from_user.id)
+    text = (message.text or "").strip()
+
+    if text == RESET_PHRASE and ADMIN_USER_ID and user_id == ADMIN_USER_ID:
+        await delete_user(user_id)
+        onboarding_state.cleanup(user_id)
+        logger.info("Admin %s triggered full reset", user_id)
+        await message.answer("Профиль полностью удалён. Напиши /start чтобы начать с нуля.")
+        return
+
     user = await get_or_create_user(user_id)
 
     if not user.get("onboarding_complete"):

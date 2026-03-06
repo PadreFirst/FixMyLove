@@ -3,7 +3,7 @@ import logging
 from typing import Any
 
 from aiogram import Router, F
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, CallbackQuery
 
 from bot.keyboards import (

@@ -7,6 +7,8 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "fixmylove")
+ADMIN_USER_ID = os.getenv("ADMIN_USER_ID", "")
+RESET_PHRASE = "##сброс"
 
 DEBOUNCE_SECONDS = 3
 SLIDING_WINDOW_SIZE = 15
