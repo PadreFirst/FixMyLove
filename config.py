@@ -18,6 +18,6 @@ API_RETRY_DELAYS = [2, 5]
 SHADOW_PROFILE_MAX_SENTENCES = 10
 SHADOW_PROFILE_COMPRESS_TO = 5
 
-MODEL_FLASH_LITE = "gemini-2.0-flash-lite"
-MODEL_FLASH = "gemini-2.0-flash"
+MODEL_FLASH_LITE = "gemini-2.5-flash-lite"
+MODEL_FLASH = "gemini-2.5-flash"
 MODEL_PRO = "gemini-2.5-pro"

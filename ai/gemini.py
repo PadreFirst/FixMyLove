@@ -1,10 +1,11 @@
 from __future__ import annotations
+
 import asyncio
 import logging
 from typing import Any
 
-import google.generativeai as genai
-from google.generativeai.types import GenerationConfig
+from google import genai
+from google.genai import types
 
 from config import (
     GEMINI_API_KEY,
@@ -17,41 +18,59 @@ from config import (
 
 logger = logging.getLogger(__name__)
 
-_configured = False
+_client: genai.Client | None = None
+
+SAFETY_OFF = [
+    types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="OFF"),
+    types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="OFF"),
+    types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="OFF"),
+    types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="OFF"),
+]
 
 
-def _ensure_configured():
-    global _configured
-    if not _configured:
-        genai.configure(api_key=GEMINI_API_KEY)
-        _configured = True
+def _get_client() -> genai.Client:
+    global _client
+    if _client is None:
+        _client = genai.Client(api_key=GEMINI_API_KEY)
+    return _client
 
 
-def _resolve_model_and_config(
+def _build_config(
     model_key: str,
-) -> tuple[str, GenerationConfig]:
-    """Map ТЗ model keys to actual Gemini model names and generation configs."""
-    _ensure_configured()
+    system_prompt: str,
+) -> tuple[str, types.GenerateContentConfig]:
+    base = dict(
+        system_instruction=system_prompt,
+        safety_settings=SAFETY_OFF,
+    )
 
     if model_key == "flash_lite":
-        return MODEL_FLASH_LITE, GenerationConfig(temperature=0.3)
+        return MODEL_FLASH_LITE, types.GenerateContentConfig(
+            **base, temperature=0.3,
+        )
 
     if model_key == "flash":
-        return MODEL_FLASH, GenerationConfig(temperature=0.7)
+        return MODEL_FLASH, types.GenerateContentConfig(
+            **base, temperature=0.7,
+        )
 
     if model_key.startswith("flash_thinking_"):
         budget = int(model_key.split("_")[-1])
-        return MODEL_FLASH, GenerationConfig(
+        return MODEL_FLASH, types.GenerateContentConfig(
+            **base,
             temperature=0.7,
-            thinking_config={"thinking_budget": budget},
+            thinking_config=types.ThinkingConfig(thinking_budget=budget),
         )
 
     if model_key == "pro":
-        return MODEL_PRO, GenerationConfig(temperature=0.7)
+        return MODEL_PRO, types.GenerateContentConfig(
+            **base, temperature=0.7,
+        )
 
-    return MODEL_FLASH, GenerationConfig(
+    return MODEL_FLASH, types.GenerateContentConfig(
+        **base,
         temperature=0.7,
-        thinking_config={"thinking_budget": 2000},
+        thinking_config=types.ThinkingConfig(thinking_budget=2000),
     )
 
 
@@ -61,20 +80,10 @@ async def generate(
     model_key: str = "flash_thinking_2000",
     images: list[Any] | None = None,
 ) -> str:
-    model_name, gen_config = _resolve_model_and_config(model_key)
-    model = genai.GenerativeModel(
-        model_name=model_name,
-        system_instruction=system_prompt,
-        generation_config=gen_config,
-        safety_settings={
-            "HARM_CATEGORY_SEXUALLY_EXPLICIT": "BLOCK_NONE",
-            "HARM_CATEGORY_HATE_SPEECH": "BLOCK_NONE",
-            "HARM_CATEGORY_HARASSMENT": "BLOCK_NONE",
-            "HARM_CATEGORY_DANGEROUS_CONTENT": "BLOCK_NONE",
-        },
-    )
+    client = _get_client()
+    model_name, config = _build_config(model_key, system_prompt)
 
-    contents = []
+    contents: list[Any] = []
     if images:
         contents.extend(images)
     contents.append(user_message)
@@ -84,8 +93,10 @@ async def generate(
 
     for attempt in range(API_RETRY_ATTEMPTS):
         try:
-            response = await asyncio.to_thread(
-                model.generate_content, contents
+            response = await client.aio.models.generate_content(
+                model=model_name,
+                contents=contents,
+                config=config,
             )
             if response.text:
                 return response.text.strip()
@@ -112,17 +123,15 @@ async def generate_json(
 
 
 async def transcribe_voice(audio_bytes: bytes, mime_type: str = "audio/ogg") -> str:
-    """Transcribe voice message using Gemini's multimodal input."""
-    _ensure_configured()
-    model = genai.GenerativeModel(
-        model_name=MODEL_FLASH,
-        generation_config=GenerationConfig(temperature=0.1),
-    )
+    client = _get_client()
+    audio_part = types.Part.from_bytes(data=audio_bytes, mime_type=mime_type)
 
-    audio_part = {"mime_type": mime_type, "data": audio_bytes}
-    prompt = "Транскрибируй это голосовое сообщение. Верни только текст, без комментариев."
-
-    response = await asyncio.to_thread(
-        model.generate_content, [audio_part, prompt]
+    response = await client.aio.models.generate_content(
+        model=MODEL_FLASH,
+        contents=[
+            audio_part,
+            "Транскрибируй это голосовое сообщение. Верни только текст, без комментариев.",
+        ],
+        config=types.GenerateContentConfig(temperature=0.1),
     )
     return response.text.strip() if response.text else ""
