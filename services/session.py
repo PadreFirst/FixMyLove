@@ -4,6 +4,8 @@ from typing import Any
 
 from ai.diagnostics import run_diagnostics
 from ai.response import generate_session_response
+from ai.gemini import generate
+from ai.prompts import FAREWELL_PROMPT, build_user_data_block, build_sliding_window_block
 from db.operations import (
     get_user,
     get_last_messages,
@@ -17,6 +19,8 @@ from db.operations import (
 from utils.constants import MessageType
 
 logger = logging.getLogger(__name__)
+
+MIN_MESSAGES_PER_PHASE = 2
 
 
 async def handle_session_message(
@@ -137,13 +141,17 @@ async def _handle_existing_session(
 
     if diag.get("session_end_detected"):
         await push_to_sliding_window(user_id, "user", user_message)
+        updated = await get_user(user_id)
+        farewell = await _generate_farewell(user_id, user_message, updated)
+        if farewell:
+            await push_to_sliding_window(user_id, "bot", farewell)
         from services.summarizer import summarize_and_close_session
         updated = await get_user(user_id)
         if updated:
             dyn = updated.get("dynamic", {})
             window = dyn.get("sliding_window", [])
             await summarize_and_close_session(user_id, window, dyn)
-        return ""
+        return farewell or "Спасибо за сессию. Я рядом — пиши когда будешь готов."
 
     phase_updates = {}
 
@@ -201,12 +209,46 @@ async def _handle_existing_session(
 
     await push_to_sliding_window(user_id, "bot", response)
 
+    phase_msg_count = updated_dynamic.get("phase_message_count", 0) + 1
+    await update_dynamic_field(user_id, "phase_message_count", phase_msg_count)
+
     current_phase = updated_dynamic.get("current_phase", "validation")
-    next_phase = _maybe_advance_phase(current_phase, diag)
-    if next_phase and next_phase != current_phase:
-        await update_dynamic_field(user_id, "current_phase", next_phase)
+    if phase_msg_count >= MIN_MESSAGES_PER_PHASE:
+        next_phase = _maybe_advance_phase(current_phase, diag)
+        if next_phase and next_phase != current_phase:
+            await update_dynamic_field(user_id, "current_phase", next_phase)
+            await update_dynamic_field(user_id, "phase_message_count", 0)
 
     return response
+
+
+async def _generate_farewell(
+    user_id: str,
+    user_message: str,
+    user: dict[str, Any] | None,
+) -> str:
+    """Generate a warm farewell message when the session closes."""
+    if not user:
+        return ""
+    dynamic = user.get("dynamic", {})
+    window = dynamic.get("sliding_window", [])
+
+    context_parts = [build_user_data_block(user)]
+    if window:
+        context_parts.append(build_sliding_window_block(window[-8:]))
+    context_parts.append(f"Паттерн: {dynamic.get('dominant_pattern', 'не определён')}")
+    context_parts.append(f"Фаза: {dynamic.get('current_phase', '?')}")
+
+    context = "\n".join(context_parts)
+    try:
+        return await generate(
+            system_prompt=FAREWELL_PROMPT,
+            user_message=f"{context}\n\nПоследнее сообщение пользователя:\n{user_message}",
+            model_key="flash",
+        )
+    except Exception as e:
+        logger.error("Farewell generation error: %s", e)
+        return ""
 
 
 def _get_methodology_name(pattern: str) -> str:
@@ -224,7 +266,10 @@ def _get_methodology_name(pattern: str) -> str:
 
 def _maybe_advance_phase(current_phase: str, diag: dict[str, Any]) -> str | None:
     """Determine if we should advance to the next phase."""
-    phase_order = ["validation", "mapping", "partner_perspective", "agency", "trainer"]
+    phase_order = [
+        "validation", "mapping", "roots",
+        "partner_perspective", "agency", "trainer",
+    ]
 
     if current_phase not in phase_order:
         return None

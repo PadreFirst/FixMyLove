@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from ai.gemini import generate_json, generate
-from ai.prompts import SUMMARIZE_PROMPT, FACT_EXTRACTION_PROMPT, SHADOW_COMPRESS_PROMPT
+from ai.prompts import SUMMARIZE_PROMPT, FACT_EXTRACTION_PROMPT, SHADOW_COMPRESS_PROMPT, DEDUP_FACTS_PROMPT
 from db.operations import (
     add_session_summary,
     add_diary_entry,
@@ -176,5 +176,37 @@ async def summarize_and_close_session(
         from db.operations import add_detected_pattern
         await add_detected_pattern(user_id, pattern)
 
+    await _deduplicate_important_facts(user_id)
+
     await close_session(user_id)
     return summary
+
+
+async def _deduplicate_important_facts(user_id: str):
+    """Remove duplicate/redundant important_facts using LLM."""
+    user = await get_user(user_id)
+    if not user:
+        return
+    facts = user.get("important_facts", [])
+    if len(facts) <= 5:
+        return
+
+    try:
+        facts_text = "\n".join(f"- {f}" for f in facts)
+        result = await generate_json(
+            system_prompt="Ты помощник по обработке данных. Отвечай строго JSON.",
+            user_message=DEDUP_FACTS_PROMPT.format(facts=facts_text),
+            model_key="flash_lite",
+        )
+        cleaned = result.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[-1]
+            if cleaned.endswith("```"):
+                cleaned = cleaned[:-3]
+            cleaned = cleaned.strip()
+
+        deduped = json.loads(cleaned)
+        if isinstance(deduped, list) and deduped:
+            await update_static_field(user_id, "important_facts", deduped)
+    except Exception as e:
+        logger.error("Fact deduplication error: %s", e)

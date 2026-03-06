@@ -89,6 +89,7 @@ class DynamicProfile(BaseModel):
     last_message_time: datetime | None = None
     sliding_window: list[dict[str, str]] = Field(default_factory=list)
     off_topic_count: int = 0
+    phase_message_count: int = 0
 
 
 def empty_dynamic() -> dict[str, Any]:
