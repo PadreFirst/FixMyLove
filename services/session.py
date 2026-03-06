@@ -184,8 +184,11 @@ async def _handle_existing_session(
                 last_time = datetime.fromisoformat(last_time)
             except ValueError:
                 last_time = None
-        if last_time and (datetime.now(timezone.utc) - last_time) > timedelta(hours=24):
-            summaries = await get_last_summaries(user_id, 3)
+        if last_time:
+            if last_time.tzinfo is None:
+                last_time = last_time.replace(tzinfo=timezone.utc)
+            if (datetime.now(timezone.utc) - last_time) > timedelta(hours=24):
+                summaries = await get_last_summaries(user_id, 3)
 
     response = await generate_session_response(
         user_message=user_message,
