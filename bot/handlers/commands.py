@@ -2,11 +2,11 @@ from __future__ import annotations
 import logging
 
 from aiogram import Router
+from aiogram.enums import ChatAction
 from aiogram.filters import Command
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message
 
-from bot.keyboards import delete_data_confirm_keyboard
-from db.operations import delete_user, get_or_create_user
+from db.operations import get_or_create_user
 from services.diary import handle_diary_show, handle_diary_update
 
 logger = logging.getLogger(__name__)
@@ -17,6 +17,8 @@ router = Router()
 async def cmd_diary(message: Message):
     user_id = str(message.from_user.id)
     text = message.text or ""
+
+    await message.answer_chat_action(ChatAction.TYPING)
 
     if "show" in text.lower():
         response = await handle_diary_show(user_id, text)
@@ -36,33 +38,10 @@ async def cmd_diary(message: Message):
     await message.answer(response, parse_mode="HTML")
 
 
-@router.message(Command("delete_data"))
-async def cmd_delete_data(message: Message):
-    await message.answer(
-        "Ты уверен? Это удалит все твои данные — профиль, историю, дневник. Отменить нельзя.",
-        reply_markup=delete_data_confirm_keyboard(),
-    )
-
-
-@router.callback_query(lambda c: c.data == "delete_confirm")
-async def delete_confirmed(callback: CallbackQuery):
-    user_id = str(callback.from_user.id)
-    await delete_user(user_id)
-    await callback.answer("Данные удалены.")
-    await callback.message.answer(
-        "Все данные удалены. Если захочешь начать заново — напиши /start."
-    )
-
-
-@router.callback_query(lambda c: c.data == "delete_cancel")
-async def delete_cancelled(callback: CallbackQuery):
-    await callback.answer("Отменено.")
-    await callback.message.answer("Ок, ничего не удаляю. Продолжаем.")
-
-
 @router.message(Command("settings"))
 async def cmd_settings(message: Message):
     user_id = str(message.from_user.id)
+    await message.answer_chat_action(ChatAction.TYPING)
     user = await get_or_create_user(user_id)
 
     name = user.get("name", "не указано")
@@ -95,7 +74,6 @@ async def cmd_help(message: Message):
         "/diary — дневник\n"
         "/diary show — показать записи\n"
         "/settings — твой профиль\n"
-        "/delete_data — удалить все данные\n"
         "/help — эта справка",
         parse_mode="HTML",
     )
