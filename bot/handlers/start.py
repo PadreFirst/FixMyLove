@@ -24,10 +24,17 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
+async def _typing(message: Message):
+    try:
+        await message.bot.send_chat_action(chat_id=message.chat.id, action=ChatAction.TYPING)
+    except Exception:
+        pass
+
+
 @router.message(CommandStart())
 async def cmd_start(message: Message):
     user_id = str(message.from_user.id)
-    await message.answer_chat_action(ChatAction.TYPING)
+    await _typing(message)
     user = await get_or_create_user(user_id)
 
     if user.get("onboarding_complete"):
@@ -43,7 +50,7 @@ async def cmd_start(message: Message):
 async def relationship_status_handler(callback: CallbackQuery):
     user_id = str(callback.from_user.id)
     await callback.answer()
-    await callback.message.answer_chat_action(ChatAction.TYPING)
+    await _typing(callback.message)
 
     mapping = {
         "rel_yes": "Да",
@@ -59,7 +66,7 @@ async def relationship_status_handler(callback: CallbackQuery):
 async def attachment_answer_handler(callback: CallbackQuery):
     user_id = str(callback.from_user.id)
     await callback.answer()
-    await callback.message.answer_chat_action(ChatAction.TYPING)
+    await _typing(callback.message)
 
     parts = callback.data.split("_")
     if len(parts) >= 3:
@@ -78,7 +85,7 @@ async def attachment_answer_handler(callback: CallbackQuery):
 async def diary_offer_handler(callback: CallbackQuery):
     user_id = str(callback.from_user.id)
     await callback.answer()
-    await callback.message.answer_chat_action(ChatAction.TYPING)
+    await _typing(callback.message)
 
     if callback.data == "diary_yes":
         await update_static_field(user_id, "diary_enabled", True)
@@ -109,7 +116,7 @@ async def handle_onboarding_text(message: Message) -> bool:
             onboarding_state.start(user_id)
             step = onboarding_state.current_step(user_id)
             if step:
-                await message.answer_chat_action(ChatAction.TYPING)
+                await _typing(message)
                 await _send_onboarding_step(message, user_id, step)
                 return True
         return False
@@ -118,7 +125,7 @@ async def handle_onboarding_text(message: Message) -> bool:
     if has_crisis_markers(message.text or ""):
         return False
 
-    await message.answer_chat_action(ChatAction.TYPING)
+    await _typing(message)
     await _process_step_and_advance(message, user_id, step, message.text or "")
     return True
 

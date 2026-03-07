@@ -1,0 +1,40 @@
+Mar 07 01:48:15 improvedemerald.aeza.network python[28770]:   File "/opt/FixMyLove/main.py", line 10, in <module>
+Mar 07 01:48:15 improvedemerald.aeza.network python[28770]:     from bot.handlers import start, message, commands, callbacks
+Mar 07 01:48:15 improvedemerald.aeza.network python[28770]:   File "/opt/FixMyLove/bot/handlers/commands.py", line 8, in <module>
+Mar 07 01:48:15 improvedemerald.aeza.network python[28770]:     from bot.keyboards import delete_data_confirm_keyboard
+Mar 07 01:48:15 improvedemerald.aeza.network python[28770]: ImportError: cannot import name 'delete_data_confirm_keyboard' from 'bot.keyboards' (/opt/FixMyLove/bot/keyboards.py)
+Mar 07 01:48:15 improvedemerald.aeza.network systemd[1]: fixmylove.service: Main process exited, code=exited, status=1/FAILURE
+Mar 07 01:48:15 improvedemerald.aeza.network systemd[1]: fixmylove.service: Failed with result 'exit-code'.
+Mar 07 01:48:15 improvedemerald.aeza.network systemd[1]: fixmylove.service: Consumed 1.852s CPU time.
+Mar 07 01:48:20 improvedemerald.aeza.network systemd[1]: fixmylove.service: Scheduled restart job, restart counter is at 5240.
+Mar 07 01:48:20 improvedemerald.aeza.network systemd[1]: Started fixmylove.service - FixMyLove Telegram Bot.
+Mar 07 01:48:22 improvedemerald.aeza.network python[28772]: Traceback (most recent call last):
+Mar 07 01:48:22 improvedemerald.aeza.network python[28772]:   File "/opt/FixMyLove/main.py", line 10, in <module>
+Mar 07 01:48:22 improvedemerald.aeza.network python[28772]:     from bot.handlers import start, message, commands, callbacks
+Mar 07 01:48:22 improvedemerald.aeza.network python[28772]:   File "/opt/FixMyLove/bot/handlers/commands.py", line 8, in <module>
+Mar 07 01:48:22 improvedemerald.aeza.network python[28772]:     from bot.keyboards import delete_data_confirm_keyboard
+Mar 07 01:48:22 improvedemerald.aeza.network python[28772]: ImportError: cannot import name 'delete_data_confirm_keyboard' from 'bot.keyboards' (/opt/FixMyLove/bot/keyboards.py)
+Mar 07 01:48:22 improvedemerald.aeza.network systemd[1]: fixmylove.service: Main process exited, code=exited, status=1/FAILURE
+Mar 07 01:48:22 improvedemerald.aeza.network systemd[1]: fixmylove.service: Failed with result 'exit-code'.
+Mar 07 01:48:22 improvedemerald.aeza.network systemd[1]: fixmylove.service: Consumed 1.923s CPU time.
+Mar 07 01:48:25 improvedemerald.aeza.network systemd[1]: Stopped fixmylove.service - FixMyLove Telegram Bot.
+Mar 07 01:48:25 improvedemerald.aeza.network systemd[1]: fixmylove.service: Consumed 1.923s CPU time.
+Mar 07 01:48:25 improvedemerald.aeza.network systemd[1]: Started fixmylove.service - FixMyLove Telegram Bot.
+Mar 07 01:48:27 improvedemerald.aeza.network python[28850]: 2026-03-07 01:48:27,484 [INFO] __main__: Starting Fix My Love bot...
+Mar 07 01:48:27 improvedemerald.aeza.network python[28850]: 2026-03-07 01:48:27,490 [INFO] __main__: MongoDB connected
+Mar 07 01:48:27 improvedemerald.aeza.network python[28850]: 2026-03-07 01:48:27,502 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Mar 07 01:48:27 improvedemerald.aeza.network python[28850]: 2026-03-07 01:48:27,502 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Mar 07 01:48:27 improvedemerald.aeza.network python[28850]: 2026-03-07 01:48:27,502 [INFO] apscheduler.scheduler: Added job "close_stale_sessions" to job store "default"
+Mar 07 01:48:27 improvedemerald.aeza.network python[28850]: 2026-03-07 01:48:27,502 [INFO] apscheduler.scheduler: Added job "send_diary_reminders" to job store "default"
+Mar 07 01:48:27 improvedemerald.aeza.network python[28850]: 2026-03-07 01:48:27,502 [INFO] apscheduler.scheduler: Scheduler started
+Mar 07 01:48:27 improvedemerald.aeza.network python[28850]: 2026-03-07 01:48:27,502 [INFO] services.scheduler: Scheduler started
+Mar 07 01:48:27 improvedemerald.aeza.network python[28850]: 2026-03-07 01:48:27,503 [INFO] __main__: Scheduler initialized
+Mar 07 01:48:27 improvedemerald.aeza.network python[28850]: 2026-03-07 01:48:27,503 [INFO] __main__: Bot started polling
+Mar 07 01:48:27 improvedemerald.aeza.network python[28850]: 2026-03-07 01:48:27,503 [INFO] aiogram.dispatcher: Start polling
+Mar 07 01:48:27 improvedemerald.aeza.network python[28850]: 2026-03-07 01:48:27,572 [INFO] aiogram.dispatcher: Run polling for bot @FixMyLove_Bot id=8720617392 - 'Fix My Love 💖'
+Mar 07 01:48:27 improvedemerald.aeza.network python[28850]: 2026-03-07 01:48:27,596 [INFO] aiogram.event: Update id=423125237 is handled. Duration 0 ms by bot id=8720617392
+Mar 07 01:48:27 improvedemerald.aeza.network python[28850]: 2026-03-07 01:48:27,597 [INFO] aiogram.event: Update id=423125238 is handled. Duration 0 ms by bot id=8720617392
+Mar 07 01:48:30 improvedemerald.aeza.network python[28850]: 2026-03-07 01:48:30,601 [ERROR] bot.middlewares.debounce: Debounce flush error for user 141002003: 'Message' object has no attribute 'answer_chat_action'
+Mar 07 01:48:30 improvedemerald.aeza.network python[28850]: 2026-03-07 01:48:30,602 [INFO] bot.handlers.message: Admin 114776357 triggered full reset
+Mar 07 01:48:54 improvedemerald.aeza.network python[28850]: 2026-03-07 01:48:54,444 [INFO] aiogram.event: Update id=423125239 is handled. Duration 0 ms by bot id=8720617392
+Mar 07 01:48:57 improvedemerald.aeza.network python[28850]: 2026-03-07 01:48:57,447 [ERROR] bot.middlewares.debounce: Debounce flush error for user 114776357: 'Message' object has no attribute 'answer_chat_action'

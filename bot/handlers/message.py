@@ -17,9 +17,16 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
+async def _typing(message: Message):
+    try:
+        await message.bot.send_chat_action(chat_id=message.chat.id, action=ChatAction.TYPING)
+    except Exception:
+        pass
+
+
 @router.message(F.voice)
 async def handle_voice(message: Message, bot: Bot):
-    """Step 1: normalize voice → text, then process."""
+    """Step 1: normalize voice -> text, then process."""
     user_id = str(message.from_user.id)
     user = await get_or_create_user(user_id)
 
@@ -27,7 +34,7 @@ async def handle_voice(message: Message, bot: Bot):
         await message.answer("Давай сначала познакомимся — напиши /start")
         return
 
-    await message.answer_chat_action(ChatAction.TYPING)
+    await _typing(message)
     try:
         file = await bot.get_file(message.voice.file_id)
         data = io.BytesIO()
@@ -52,7 +59,7 @@ async def handle_voice(message: Message, bot: Bot):
 
 @router.message(F.photo)
 async def handle_photo(message: Message, bot: Bot):
-    """Step 1: normalize photo → pass with tag."""
+    """Step 1: normalize photo -> pass with tag."""
     user_id = str(message.from_user.id)
     user = await get_or_create_user(user_id)
 
@@ -60,7 +67,7 @@ async def handle_photo(message: Message, bot: Bot):
         await message.answer("Давай сначала познакомимся — напиши /start")
         return
 
-    await message.answer_chat_action(ChatAction.TYPING)
+    await _typing(message)
     caption = message.caption or ""
     text = f"[скриншот переписки] {caption}".strip()
 
@@ -98,7 +105,7 @@ async def handle_text(message: Message):
         await message.answer("Давай сначала познакомимся — напиши /start")
         return
 
-    await message.answer_chat_action(ChatAction.TYPING)
+    await _typing(message)
     response = await process_message(user_id, message.text or "")
     if response:
         await message.answer(response, parse_mode="HTML")

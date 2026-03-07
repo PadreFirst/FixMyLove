@@ -13,12 +13,19 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
+async def _typing(message: Message):
+    try:
+        await message.bot.send_chat_action(chat_id=message.chat.id, action=ChatAction.TYPING)
+    except Exception:
+        pass
+
+
 @router.message(Command("diary"))
 async def cmd_diary(message: Message):
     user_id = str(message.from_user.id)
     text = message.text or ""
 
-    await message.answer_chat_action(ChatAction.TYPING)
+    await _typing(message)
 
     if "show" in text.lower():
         response = await handle_diary_show(user_id, text)
@@ -41,7 +48,7 @@ async def cmd_diary(message: Message):
 @router.message(Command("settings"))
 async def cmd_settings(message: Message):
     user_id = str(message.from_user.id)
-    await message.answer_chat_action(ChatAction.TYPING)
+    await _typing(message)
     user = await get_or_create_user(user_id)
 
     name = user.get("name", "не указано")
