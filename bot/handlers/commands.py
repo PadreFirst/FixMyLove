@@ -42,7 +42,7 @@ async def cmd_diary(message: Message):
                 "Или просто напиши «запиши в дневник» + текст."
             )
 
-    await message.answer(response, parse_mode="HTML")
+    await message.answer(response)
 
 
 @router.message(Command("settings"))

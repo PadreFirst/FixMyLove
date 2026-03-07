@@ -54,7 +54,7 @@ async def handle_voice(message: Message, bot: Bot):
 
     response = await process_message(user_id, text)
     if response:
-        await message.answer(response, parse_mode="HTML")
+        await message.answer(response)
 
 
 @router.message(F.photo)
@@ -73,7 +73,7 @@ async def handle_photo(message: Message, bot: Bot):
 
     response = await process_message(user_id, text)
     if response:
-        await message.answer(response, parse_mode="HTML")
+        await message.answer(response)
 
 
 @router.message(F.text)
@@ -100,7 +100,7 @@ async def handle_text(message: Message):
             from services.crisis import handle_crisis
             response = await handle_crisis(user_id, message.text, user, "suicidal")
             if response:
-                await message.answer(response, parse_mode="HTML")
+                await message.answer(response)
             return
         await message.answer("Давай сначала познакомимся — напиши /start")
         return
@@ -108,4 +108,4 @@ async def handle_text(message: Message):
     await _typing(message)
     response = await process_message(user_id, message.text or "")
     if response:
-        await message.answer(response, parse_mode="HTML")
+        await message.answer(response)
