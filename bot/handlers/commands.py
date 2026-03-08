@@ -8,6 +8,7 @@ from aiogram.types import Message
 
 from db.operations import get_or_create_user
 from services.diary import handle_diary_show, handle_diary_update
+from utils.text import clean_markdown
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -42,7 +43,7 @@ async def cmd_diary(message: Message):
                 "Или просто напиши «запиши в дневник» + текст."
             )
 
-    await message.answer(response)
+    await message.answer(clean_markdown(response))
 
 
 @router.message(Command("settings"))

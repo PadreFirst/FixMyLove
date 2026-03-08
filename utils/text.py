@@ -2,6 +2,18 @@ import re
 from utils.constants import CRISIS_KEYWORDS, DIARY_KEYWORDS, ADMIN_KEYWORDS, DIARY_SHOW_KEYWORDS
 
 
+def clean_markdown(text: str) -> str:
+    """Strip Markdown formatting that Telegram renders as raw characters."""
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+    text = re.sub(r'\*(.+?)\*', r'\1', text)
+    text = re.sub(r'__(.+?)__', r'\1', text)
+    text = re.sub(r'_(.+?)_', r'\1', text)
+    text = re.sub(r'~~(.+?)~~', r'\1', text)
+    text = re.sub(r'`(.+?)`', r'\1', text)
+    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+    return text.strip()
+
+
 def has_crisis_markers(text: str) -> bool:
     lower = text.lower()
     return any(kw in lower for kw in CRISIS_KEYWORDS)

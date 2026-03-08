@@ -12,6 +12,7 @@ from services.pipeline import process_message
 from bot.handlers.start import handle_onboarding_text
 from services.onboarding import onboarding_state
 from ai.gemini import transcribe_voice
+from utils.text import clean_markdown
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -54,7 +55,7 @@ async def handle_voice(message: Message, bot: Bot):
 
     response = await process_message(user_id, text)
     if response:
-        await message.answer(response)
+        await message.answer(clean_markdown(response))
 
 
 @router.message(F.photo)
@@ -73,7 +74,7 @@ async def handle_photo(message: Message, bot: Bot):
 
     response = await process_message(user_id, text)
     if response:
-        await message.answer(response)
+        await message.answer(clean_markdown(response))
 
 
 @router.message(F.text)
@@ -100,7 +101,7 @@ async def handle_text(message: Message):
             from services.crisis import handle_crisis
             response = await handle_crisis(user_id, message.text, user, "suicidal")
             if response:
-                await message.answer(response)
+                await message.answer(clean_markdown(response))
             return
         await message.answer("Давай сначала познакомимся — напиши /start")
         return
@@ -108,4 +109,4 @@ async def handle_text(message: Message):
     await _typing(message)
     response = await process_message(user_id, message.text or "")
     if response:
-        await message.answer(response)
+        await message.answer(clean_markdown(response))
