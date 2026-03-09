@@ -40,6 +40,11 @@ def parse_diary_show_count(text: str) -> int:
 
 def is_admin_command(text: str) -> bool:
     lower = text.lower().strip()
+    if lower.startswith("/"):
+        return any(kw in lower for kw in ADMIN_KEYWORDS)
+    # Only match admin keywords in short messages (likely actual commands)
+    if len(lower) > 60:
+        return False
     return any(kw in lower for kw in ADMIN_KEYWORDS)
 
 

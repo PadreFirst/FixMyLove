@@ -88,11 +88,30 @@ async def send_diary_reminders():
                     if hours_since < 24:
                         continue
 
+            # Skip if we already sent a reminder recently (within 23h)
+            last_reminder = dynamic.get("last_reminder_time")
+            if last_reminder:
+                if isinstance(last_reminder, str):
+                    try:
+                        from datetime import datetime as dt
+                        last_reminder = dt.fromisoformat(last_reminder)
+                    except ValueError:
+                        last_reminder = None
+                if last_reminder:
+                    hours_since_reminder = (now - last_reminder).total_seconds() / 3600
+                    if hours_since_reminder < 23:
+                        continue
+
             if _bot_ref:
                 try:
                     await _bot_ref.send_message(
                         chat_id=int(user_id),
                         text="Привет! Как дела? Если есть что записать в дневник или хочешь поговорить — я здесь.",
+                    )
+                    # Mark reminder as sent so we don't spam
+                    await db.users.update_one(
+                        {"user_id": user_id},
+                        {"$set": {"dynamic.last_reminder_time": now}},
                     )
                     logger.info("Sent diary reminder to %s", user_id)
                 except Exception as e:
