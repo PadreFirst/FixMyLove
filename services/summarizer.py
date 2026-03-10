@@ -171,6 +171,8 @@ async def summarize_and_close_session(
     if pending and pending != "-":
         await add_important_fact(user_id, f"Задание: {pending}")
 
+    await _migrate_old_facts(user_id)
+
     pattern = dynamic.get("dominant_pattern", "")
     if pattern and pattern != "undefined":
         from db.operations import add_detected_pattern
@@ -182,8 +184,29 @@ async def summarize_and_close_session(
     return summary
 
 
+async def _migrate_old_facts(user_id: str):
+    """One-time migration: convert string facts to structured format."""
+    from db.models import _utcnow
+    user = await get_user(user_id)
+    if not user:
+        return
+    facts = user.get("important_facts", [])
+    if not facts or all(isinstance(f, dict) for f in facts):
+        return
+
+    now = _utcnow().isoformat()
+    migrated = []
+    for f in facts:
+        if isinstance(f, str):
+            migrated.append({"text": f, "first_seen": now, "last_confirmed": now})
+        else:
+            migrated.append(f)
+
+    await update_static_field(user_id, "important_facts", migrated)
+
+
 async def _deduplicate_important_facts(user_id: str):
-    """Remove duplicate/redundant important_facts using LLM."""
+    """Remove duplicate/redundant important_facts using LLM, preserving timestamps."""
     user = await get_user(user_id)
     if not user:
         return
@@ -191,8 +214,15 @@ async def _deduplicate_important_facts(user_id: str):
     if len(facts) <= 5:
         return
 
+    fact_texts = []
+    for f in facts:
+        if isinstance(f, dict):
+            fact_texts.append(f.get("text", ""))
+        else:
+            fact_texts.append(str(f))
+
     try:
-        facts_text = "\n".join(f"- {f}" for f in facts)
+        facts_text = "\n".join(f"- {t}" for t in fact_texts if t)
         result = await generate_json(
             system_prompt="Ты помощник по обработке данных. Отвечай строго JSON.",
             user_message=DEDUP_FACTS_PROMPT.format(facts=facts_text),
@@ -205,8 +235,35 @@ async def _deduplicate_important_facts(user_id: str):
                 cleaned = cleaned[:-3]
             cleaned = cleaned.strip()
 
-        deduped = json.loads(cleaned)
-        if isinstance(deduped, list) and deduped:
-            await update_static_field(user_id, "important_facts", deduped)
+        deduped_texts = json.loads(cleaned)
+        if not isinstance(deduped_texts, list) or not deduped_texts:
+            return
+
+        deduped_set = {t.strip().lower() for t in deduped_texts if isinstance(t, str)}
+
+        # Rebuild with timestamps: keep the structured fact whose text survived dedup,
+        # using the newest last_confirmed among merged duplicates
+        text_to_meta: dict[str, dict] = {}
+        for f in facts:
+            if isinstance(f, dict):
+                text = f.get("text", "").strip().lower()
+                if text not in text_to_meta or f.get("last_confirmed", "") > text_to_meta[text].get("last_confirmed", ""):
+                    text_to_meta[text] = f
+
+        result_facts = []
+        for dt in deduped_texts:
+            if not isinstance(dt, str):
+                continue
+            key = dt.strip().lower()
+            if key in text_to_meta:
+                meta = text_to_meta[key]
+                result_facts.append({"text": dt.strip(), "first_seen": meta.get("first_seen", ""), "last_confirmed": meta.get("last_confirmed", "")})
+            else:
+                from db.models import _utcnow
+                now = _utcnow().isoformat()
+                result_facts.append({"text": dt.strip(), "first_seen": now, "last_confirmed": now})
+
+        if result_facts:
+            await update_static_field(user_id, "important_facts", result_facts)
     except Exception as e:
         logger.error("Fact deduplication error: %s", e)

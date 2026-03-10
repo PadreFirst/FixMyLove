@@ -193,7 +193,7 @@ def build_user_data_block(user: dict[str, Any]) -> str:
     status = user.get("relationship_status") or "не указано"
     note = user.get("relationship_note") or ""
     attachment = user.get("attachment_style") or "не определён"
-    facts = user.get("important_facts", [])
+    raw_facts = user.get("important_facts", [])
 
     block = f"""[ДАННЫЕ ПОЛЬЗОВАТЕЛЯ]
 Имя: {name}
@@ -202,8 +202,14 @@ def build_user_data_block(user: dict[str, Any]) -> str:
 Статус: {status}{(' — ' + note) if note else ''}
 Тип привязанности: {attachment}"""
 
-    if facts:
-        block += "\nВажные факты: " + "; ".join(facts[-10:])
+    if raw_facts:
+        formatted = []
+        for f in raw_facts[-15:]:
+            if isinstance(f, dict):
+                formatted.append(f.get("text", ""))
+            else:
+                formatted.append(str(f))
+        block += "\nВажные факты: " + "; ".join(f for f in formatted if f)
 
     return block
 

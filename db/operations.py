@@ -100,8 +100,40 @@ async def get_diary_entries(user_id: str, count: int = 10) -> list[dict[str, Any
 
 
 async def add_important_fact(user_id: str, fact: str):
+    """Add a fact with timestamps. If a similar text already exists, update last_confirmed."""
+    uid = _uid(user_id)
+    now = _utcnow().isoformat()
+    fact_text = fact.strip()
+    if not fact_text:
+        return
+
+    user = await get_db().users.find_one({"user_id": uid})
+    if not user:
+        return
+
+    existing = user.get("important_facts", [])
+
+    # Backward compat: migrate old string-only facts
+    migrated = []
+    for f in existing:
+        if isinstance(f, str):
+            migrated.append({"text": f, "first_seen": now, "last_confirmed": now})
+        else:
+            migrated.append(f)
+
+    # Check for exact text match — update last_confirmed
+    found = False
+    for item in migrated:
+        if item.get("text", "").strip().lower() == fact_text.lower():
+            item["last_confirmed"] = now
+            found = True
+            break
+
+    if not found:
+        migrated.append({"text": fact_text, "first_seen": now, "last_confirmed": now})
+
     await get_db().users.update_one(
-        {"user_id": user_id}, {"$addToSet": {"important_facts": fact}}
+        {"user_id": uid}, {"$set": {"important_facts": migrated}}
     )
 
 

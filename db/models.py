@@ -67,7 +67,7 @@ class StaticProfile(BaseModel):
     shadow_profile_partner: str = ""
     archived_partners: list[dict[str, Any]] = Field(default_factory=list)
     onboarding_complete: bool = False
-    important_facts: list[str] = Field(default_factory=list)
+    important_facts: list[dict[str, Any]] = Field(default_factory=list)
     privacy_accepted: bool = False
     created_at: datetime = Field(default_factory=_utcnow)
 
