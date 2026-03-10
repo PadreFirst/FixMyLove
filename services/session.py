@@ -127,6 +127,7 @@ async def _handle_new_session(
     )
 
     await push_to_sliding_window(user_id, "bot", response)
+    await update_dynamic_field(user_id, "session_message_count", 1)
     return response
 
 
@@ -211,6 +212,9 @@ async def _handle_existing_session(
 
     phase_msg_count = updated_dynamic.get("phase_message_count", 0) + 1
     await update_dynamic_field(user_id, "phase_message_count", phase_msg_count)
+
+    session_msg_count = updated_dynamic.get("session_message_count", 0) + 1
+    await update_dynamic_field(user_id, "session_message_count", session_msg_count)
 
     current_phase = updated_dynamic.get("current_phase", "validation")
     if phase_msg_count >= MIN_MESSAGES_PER_PHASE:
