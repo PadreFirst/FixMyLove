@@ -213,6 +213,10 @@ async def process_onboarding_answer(
     elif step == "diary_schedule":
         if text.strip():
             result["field_updates"]["diary_schedule"] = text.strip()[:200]
+            from services.schedule_parser import parse_schedule
+            parsed = await parse_schedule(text.strip()[:200])
+            if parsed:
+                result["field_updates"]["diary_schedule_parsed"] = parsed
 
     if result["field_updates"]:
         await update_user(user_id, result["field_updates"])

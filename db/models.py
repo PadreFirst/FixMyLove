@@ -59,6 +59,7 @@ class StaticProfile(BaseModel):
     attachment_style: str = ""
     diary_enabled: bool = False
     diary_schedule: str = ""
+    diary_schedule_parsed: dict[str, Any] | None = None
     session_summaries: list[dict[str, Any]] = Field(default_factory=list)
     diary_entries: list[dict[str, Any]] = Field(default_factory=list)
     detected_patterns: list[str] = Field(default_factory=list)

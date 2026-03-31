@@ -106,7 +106,7 @@ async def _route_message(
         )
 
     if msg_type == MessageType.ADMIN:
-        return await generate_admin_response(text)
+        return await generate_admin_response(text, user_id=user_id)
 
     if dynamic.get("off_topic_count", 0) > 0:
         await update_dynamic_field(user_id, "off_topic_count", 0)

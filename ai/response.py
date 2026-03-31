@@ -8,6 +8,7 @@ from ai.prompts import (
     build_user_data_block,
     CRISIS_SUICIDE_PROMPT,
     CRISIS_ABUSE_PROMPT,
+    TONE_CORE,
 )
 
 logger = logging.getLogger(__name__)
@@ -116,14 +117,16 @@ async def generate_reflection_response(
     detected_patterns: list[str],
 ) -> str:
     """Generate reflection/dynamics response."""
-    system = """Ты — психолог. Пользователь просит рефлексию — обзор динамики отношений за период.
+    system = f"""{TONE_CORE}
+
+Ты — психолог. Пользователь просит рефлексию — обзор того, как менялись его отношения за последнее время.
 
 Задача:
-1. Формируй картину динамики: что изменилось, какие паттерны повторяются, куда движется.
+1. Покажи картину: что изменилось, какие привычки повторяются, куда всё движется.
 2. Дай обратную связь.
 3. Один открытый вопрос в конце.
 
-Будь конкретен — ссылайся на конкретные сессии и изменения."""
+Будь конкретен — ссылайся на конкретные разговоры и изменения."""
 
     context_parts = [build_user_data_block(user)]
 
@@ -171,6 +174,7 @@ async def generate_off_topic_response(
 
     if is_first_off_topic:
         system = (
+            f"{TONE_CORE}\n\n"
             "Ты — психолог по отношениям. Пользователь задал вопрос не про отношения. "
             "Коротко ответь на вопрос, затем мягко добавь: "
             "'Я здесь прежде всего для работы с отношениями — если захочешь разобрать ситуацию, пиши.'"
@@ -189,9 +193,16 @@ async def generate_off_topic_response(
 
 async def generate_admin_response(
     user_message: str,
+    user_id: str | None = None,
 ) -> str:
-    """Generate admin/settings response."""
+    """Generate admin/settings response. Handles schedule changes via DB update."""
+    if user_id:
+        result = await _try_handle_schedule_change(user_message, user_id)
+        if result is not None:
+            return result
+
     system = (
+        f"{TONE_CORE}\n\n"
         "Пользователь хочет изменить настройки. Определи что именно он хочет изменить "
         "и подтверди изменение коротко. Если непонятно — уточни одним вопросом."
     )
@@ -203,3 +214,54 @@ async def generate_admin_response(
         )
     except Exception:
         return "Что именно ты хочешь изменить?"
+
+
+async def _try_handle_schedule_change(user_message: str, user_id: str) -> str | None:
+    """Detect and apply schedule changes. Returns response text or None."""
+    import json
+    import re
+    from ai.prompts import ADMIN_DETECT_SCHEDULE_PROMPT
+    from db.operations import update_user
+    from services.schedule_parser import parse_schedule, schedule_to_human
+
+    try:
+        detect_raw = await generate(
+            system_prompt=ADMIN_DETECT_SCHEDULE_PROMPT,
+            user_message=user_message,
+            model_key="flash_lite",
+        )
+        detect_raw = detect_raw.strip()
+        detect_raw = re.sub(r"^```(?:json)?\s*", "", detect_raw)
+        detect_raw = re.sub(r"\s*```$", "", detect_raw)
+        detection = json.loads(detect_raw)
+    except Exception as e:
+        logger.error("Schedule detection error: %s", e)
+        return None
+
+    if not detection.get("is_schedule_change"):
+        return None
+
+    if detection.get("wants_disable"):
+        await update_user(user_id, {
+            "diary_enabled": False,
+            "diary_schedule": "",
+            "diary_schedule_parsed": None,
+        })
+        return "Напоминания выключены. Если захочешь снова — просто скажи."
+
+    schedule_text = detection.get("schedule_text", "").strip()
+    if not schedule_text:
+        return "Когда тебе напоминать? Напиши в свободной форме, например: «по вторникам и четвергам в 19:00» или «каждый день утром»."
+
+    parsed = await parse_schedule(schedule_text)
+    if not parsed:
+        return "Не удалось разобрать расписание. Попробуй написать иначе, например: «в будни в 20:00» или «по субботам вечером»."
+
+    await update_user(user_id, {
+        "diary_enabled": True,
+        "diary_schedule": schedule_text,
+        "diary_schedule_parsed": parsed,
+    })
+
+    human = schedule_to_human(parsed)
+    return f"Готово! Буду писать тебе {human}."

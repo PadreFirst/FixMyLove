@@ -8,6 +8,7 @@ from aiogram.types import Message
 
 from db.operations import get_or_create_user
 from services.diary import handle_diary_show, handle_diary_update
+from services.schedule_parser import schedule_to_human
 from utils.text import clean_markdown
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,8 @@ async def cmd_settings(message: Message):
     partner = user.get("partner_name", "не указано")
     status = user.get("relationship_status", "не указано")
     diary = "включён" if user.get("diary_enabled") else "выключен"
-    schedule = user.get("diary_schedule", "не задано")
+    parsed_schedule = user.get("diary_schedule_parsed")
+    schedule = schedule_to_human(parsed_schedule) if parsed_schedule else (user.get("diary_schedule") or "не задано")
 
     await message.answer(
         f"<b>Твой профиль:</b>\n"
