@@ -76,8 +76,8 @@ def soften_capslock(text: str) -> str:
         chunk = match.group(0)
         return chunk.lower()
 
-    # Match runs of 4+ uppercase letters (allow spaces/punctuation inside phrase)
-    return re.sub(r"[А-ЯA-Z]{4,}", _repl, text)
+    # Match runs of 4+ uppercase letters (Cyrillic ЁА-Я and Latin A-Z)
+    return re.sub(r"[ЁА-ЯA-Z]{4,}", _repl, text)
 
 
 def split_long_message(text: str, max_len: int = 700) -> list[str]:
