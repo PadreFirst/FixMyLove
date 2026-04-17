@@ -41,6 +41,11 @@ async def cmd_start(message: Message):
         await message.answer("С возвращением! Расскажи что тебя беспокоит.")
         return
 
+    current_step = onboarding_state.current_step(user_id)
+    if current_step:
+        await _send_onboarding_step(message, user_id, current_step)
+        return
+
     await update_static_field(user_id, "privacy_accepted", True)
     onboarding_state.start(user_id)
     await message.answer(ONBOARDING_WELCOME)

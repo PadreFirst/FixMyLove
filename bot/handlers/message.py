@@ -31,10 +31,6 @@ async def handle_voice(message: Message, bot: Bot):
     user_id = str(message.from_user.id)
     user = await get_or_create_user(user_id)
 
-    if not user.get("onboarding_complete"):
-        await message.answer("Давай сначала познакомимся — напиши /start")
-        return
-
     await _typing(message)
     try:
         file = await bot.get_file(message.voice.file_id)
@@ -46,13 +42,19 @@ async def handle_voice(message: Message, bot: Bot):
         if not text:
             await message.answer("Не удалось распознать голосовое сообщение. Попробуй написать текстом.")
             return
-
-        text = f"[голосовое сообщение] {text}"
     except Exception as e:
         logger.error("Voice processing error: %s", e)
         await message.answer("Не удалось обработать голосовое. Попробуй написать текстом.")
         return
 
+    if not user.get("onboarding_complete"):
+        fake = message.model_copy(update={"text": text})
+        consumed = await handle_onboarding_text(fake)
+        if not consumed:
+            await message.answer("Давай сначала познакомимся — напиши /start")
+        return
+
+    text = f"[голосовое сообщение] {text}"
     response = await process_message(user_id, text)
     if response:
         await message.answer(clean_markdown(response))
