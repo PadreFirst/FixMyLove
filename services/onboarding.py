@@ -120,105 +120,207 @@ def get_step_message(step: str, user: dict[str, Any] | None = None, q_index: int
     return None
 
 
+STEP_REPROMPTS = {
+    "name": "Не уловил имя — напиши просто, как тебя зовут (например: Маша).",
+    "age": "Нужен возраст числом от 10 до 120. Напиши цифрой, например: 28.",
+    "relationship_status": (
+        "Не понял статус. Напиши своими словами — например: «в отношениях», "
+        "«расстались», «ищу», «всё сложно»."
+    ),
+    "partner_name": "Как зовут твоего партнёра? Достаточно имени.",
+    "partner_age": "Возраст партнёра числом от 10 до 120. Например: 30.",
+    "duration": "Напиши сколько лет вы вместе цифрой. Например: 3.",
+    "note": "Напиши пару предложений о ваших отношениях — что сейчас беспокоит.",
+    "breakup_note": "Расскажи коротко: как давно расстались и что сейчас важнее разобрать.",
+    "diary_schedule": "Напиши в свободной форме — например: «по вторникам в 19:00» или «каждый день утром».",
+}
+
+
+def get_step_reprompt(step: str) -> str:
+    """Return a softer, reworded message asking the user to answer again."""
+    if step in STEP_REPROMPTS:
+        return STEP_REPROMPTS[step]
+    if step.startswith("att_q"):
+        return (
+            "Нажми на один из вариантов — или опиши своими словами, как ты обычно реагируешь."
+        )
+    return "Попробуй ответить ещё раз, пожалуйста."
+
+
+async def _classify_attachment_freeform(text: str) -> str | None:
+    """Classify free-form user text into А/Б/В/Г attachment option via LLM."""
+    from ai.gemini import generate
+    prompt = (
+        "Ты классифицируешь ответ пользователя на вопрос о привязанности.\n"
+        "Варианты:\n"
+        "А — надёжный стиль: открыт, спокойно разбирается\n"
+        "Б — тревожный: переживает, хочет больше контакта, боится потерять\n"
+        "В — избегающий: уходит в себя, нужно время, справляется сам\n"
+        "Г — дезорганизованный: «по-разному», хаотично, противоречиво\n\n"
+        "Верни ТОЛЬКО одну букву: А, Б, В или Г."
+    )
+    try:
+        raw = await generate(
+            system_prompt=prompt,
+            user_message=text.strip()[:500],
+            model_key="flash_lite",
+        )
+        letter = (raw or "").strip().upper()[:1]
+        if letter in "АБВГ":
+            return letter
+        # tolerate latin answer
+        mapping = {"A": "А", "B": "Б", "C": "В", "D": "Г"}
+        return mapping.get(letter)
+    except Exception:
+        return None
+
+
+async def _classify_relationship_freeform(text: str) -> str:
+    """Normalize free-form relationship status answer."""
+    lower = text.lower().strip()
+    if any(w in lower for w in ("брак", "женат", "замужем")):
+        return "брак"
+    if "живём" in lower or "живем" in lower:
+        return "живём вместе"
+    if any(w in lower for w in ("в отношениях", "встречаемся", "вместе", "пара", "парень", "девушк", "муж", "жена")):
+        return "встречаемся"
+    if any(w in lower for w in ("расстал", "разошл", "бывш", "развод")):
+        return "расстались"
+    if any(w in lower for w in ("ищу", "одинок", "свободен", "свободна", "один", "одна")):
+        return "ищу"
+    return "неопределённость"
+
+
 async def process_onboarding_answer(
     user_id: str, step: str, text: str, user_doc: dict[str, Any]
 ) -> dict[str, Any]:
     """Process user's answer for an onboarding step.
 
     Returns dict with:
+      - valid: True if answer accepted, False → caller should re-prompt
       - field_updates: dict of fields to update in DB
       - next_steps: list of steps to insert (e.g. dating path)
       - attachment_letter: if answering attachment question
     """
-    result: dict[str, Any] = {"field_updates": {}, "next_steps": [], "attachment_letter": None}
+    result: dict[str, Any] = {
+        "valid": False,
+        "field_updates": {},
+        "next_steps": [],
+        "attachment_letter": None,
+    }
+
+    clean = (text or "").strip()
 
     if step == "name":
-        name = text.strip()
-        if name and len(name) < 50:
-            result["field_updates"]["name"] = name
+        if clean and 1 <= len(clean) <= 50:
+            result["field_updates"]["name"] = clean
+            result["valid"] = True
 
     elif step == "age":
-        try:
-            age = int("".join(c for c in text if c.isdigit())[:3])
-            if 10 <= age <= 120:
-                result["field_updates"]["age"] = age
-        except (ValueError, IndexError):
-            pass
+        digits = "".join(c for c in clean if c.isdigit())[:3]
+        if digits:
+            try:
+                age = int(digits)
+                if 10 <= age <= 120:
+                    result["field_updates"]["age"] = age
+                    result["valid"] = True
+            except ValueError:
+                pass
 
     elif step == "relationship_status":
-        lower = text.lower().strip()
-        if "да" in lower or "встречаемся" in lower or "вместе" in lower or "брак" in lower or "женат" in lower or "замужем" in lower:
-            if "брак" in lower or "женат" in lower or "замужем" in lower:
-                result["field_updates"]["relationship_status"] = "брак"
-            elif "живём" in lower:
-                result["field_updates"]["relationship_status"] = "живём вместе"
-            else:
-                result["field_updates"]["relationship_status"] = "встречаемся"
-            result["next_steps"] = OnboardingState.STEPS_DATING + OnboardingState.STEPS_ATTACHMENT + OnboardingState.STEPS_DIARY
-        elif "расстал" in lower or "нет" in lower:
-            result["field_updates"]["relationship_status"] = "расстались"
-            result["next_steps"] = OnboardingState.STEPS_BROKE_UP + OnboardingState.STEPS_ATTACHMENT + OnboardingState.STEPS_DIARY
-        elif "ищу" in lower:
-            result["field_updates"]["relationship_status"] = "ищу"
-            result["next_steps"] = OnboardingState.STEPS_ATTACHMENT + OnboardingState.STEPS_DIARY
+        if not clean:
+            return result
+        status = await _classify_relationship_freeform(clean)
+        result["field_updates"]["relationship_status"] = status
+        result["valid"] = True
+        if status in ("встречаемся", "живём вместе", "брак"):
+            result["next_steps"] = (
+                OnboardingState.STEPS_DATING
+                + OnboardingState.STEPS_ATTACHMENT
+                + OnboardingState.STEPS_DIARY
+            )
+        elif status == "расстались":
+            result["next_steps"] = (
+                OnboardingState.STEPS_BROKE_UP
+                + OnboardingState.STEPS_ATTACHMENT
+                + OnboardingState.STEPS_DIARY
+            )
         else:
-            result["field_updates"]["relationship_status"] = "неопределённость"
-            result["next_steps"] = OnboardingState.STEPS_ATTACHMENT + OnboardingState.STEPS_DIARY
+            result["next_steps"] = (
+                OnboardingState.STEPS_ATTACHMENT + OnboardingState.STEPS_DIARY
+            )
 
     elif step == "partner_name":
-        name = text.strip()
-        if name and len(name) < 50:
-            result["field_updates"]["partner_name"] = name
+        if clean and 1 <= len(clean) <= 50:
+            result["field_updates"]["partner_name"] = clean
+            result["valid"] = True
 
     elif step == "partner_age":
-        try:
-            age = int("".join(c for c in text if c.isdigit())[:3])
-            if 10 <= age <= 120:
-                result["field_updates"]["partner_age"] = age
-        except (ValueError, IndexError):
-            pass
+        digits = "".join(c for c in clean if c.isdigit())[:3]
+        if digits:
+            try:
+                age = int(digits)
+                if 10 <= age <= 120:
+                    result["field_updates"]["partner_age"] = age
+                    result["valid"] = True
+            except ValueError:
+                pass
 
     elif step == "duration":
-        try:
-            num = int("".join(c for c in text if c.isdigit())[:3])
-            result["field_updates"]["relationship_duration"] = num
-        except (ValueError, IndexError):
-            pass
+        digits = "".join(c for c in clean if c.isdigit())[:3]
+        if digits:
+            try:
+                num = int(digits)
+                result["field_updates"]["relationship_duration"] = num
+                result["valid"] = True
+            except ValueError:
+                pass
 
     elif step == "note":
-        if text.strip():
-            result["field_updates"]["relationship_note"] = text.strip()[:300]
+        if len(clean) >= 3:
+            result["field_updates"]["relationship_note"] = clean[:300]
+            result["valid"] = True
 
     elif step == "breakup_note":
-        if text.strip():
-            result["field_updates"]["relationship_note"] = text.strip()[:300]
+        if len(clean) >= 3:
+            result["field_updates"]["relationship_note"] = clean[:300]
+            result["valid"] = True
 
     elif step.startswith("att_q"):
-        letter = text.strip().upper()
+        letter = clean.upper()
+        chosen: str | None = None
         if letter and letter[0] in "АБВГ":
-            cyrillic_to_letter = {"А": "А", "Б": "Б", "В": "В", "Г": "Г"}
-            result["attachment_letter"] = cyrillic_to_letter.get(letter[0], letter[0])
+            chosen = letter[0]
         elif letter and letter[0] in "ABCD":
-            mapping = {"A": "А", "B": "Б", "C": "В", "D": "Г"}
-            result["attachment_letter"] = mapping.get(letter[0], "А")
+            chosen = {"A": "А", "B": "Б", "C": "В", "D": "Г"}.get(letter[0])
+        else:
+            # free-form text — classify via LLM
+            if len(clean) >= 2:
+                chosen = await _classify_attachment_freeform(clean)
+        if chosen:
+            result["attachment_letter"] = chosen
+            result["valid"] = True
 
     elif step == "diary_offer":
-        lower = text.lower().strip()
-        if "да" in lower:
+        lower = clean.lower()
+        if any(w in lower for w in ("да", "давай", "ок", "окей", "хорошо", "можно", "ага", "угу")):
             result["field_updates"]["diary_enabled"] = True
             result["next_steps"] = ["diary_schedule"]
-        else:
+            result["valid"] = True
+        elif any(w in lower for w in ("нет", "не надо", "не нужно", "не хочу", "позже")):
             result["field_updates"]["diary_enabled"] = False
+            result["valid"] = True
 
     elif step == "diary_schedule":
-        if text.strip():
-            result["field_updates"]["diary_schedule"] = text.strip()[:200]
+        if len(clean) >= 2:
+            result["field_updates"]["diary_schedule"] = clean[:200]
             from services.schedule_parser import parse_schedule
-            parsed = await parse_schedule(text.strip()[:200])
+            parsed = await parse_schedule(clean[:200])
             if parsed:
                 result["field_updates"]["diary_schedule_parsed"] = parsed
+            result["valid"] = True
 
-    if result["field_updates"]:
+    if result["valid"] and result["field_updates"]:
         await update_user(user_id, result["field_updates"])
 
     return result

@@ -44,7 +44,10 @@ SYSTEM_PROMPT_TEMPLATE = """Ты — опытный психолог и коуч
 ФОРМАТИРОВАНИЕ:
 - НИКАКОГО Markdown. Нельзя использовать: *звёздочки*, **двойные**, _подчёркивания_,
   # заголовки, `бэктики`. Только чистый текст без форматирования.
-  Для выделения используй ЗАГЛАВНЫЕ БУКВЫ или кавычки.
+- НИКОГДА не пиши СЛОВА КАПСЛОКОМ (заглавными буквами больше 3 букв подряд).
+  В мессенджере это воспринимается как крик и раздражает. Для акцента
+  используй «кавычки» или просто точные формулировки. Исключение —
+  общеупотребительные аббревиатуры (КПТ, ЕМДР).
 
 СТРУКТУРА ДИАЛОГА:
 1. Сначала услышь — потом анализируй. Особенно в острых ситуациях.
@@ -383,6 +386,23 @@ def build_full_system_prompt(
     phase = dynamic.get("current_phase", "validation")
     phase_block = PHASE_INSTRUCTIONS.get(phase, "")
     hints_block = build_session_hints_block(dynamic)
+
+    # Adaptive hints: frustration + response length
+    from services.frustration import (
+        detect_frustration_in_window,
+        average_user_message_length,
+        build_frustration_hint,
+        build_length_hint,
+    )
+    effective_window = window or dynamic.get("sliding_window", []) or []
+    frustration_hits = detect_frustration_in_window(effective_window)
+    avg_len = average_user_message_length(effective_window)
+    frustration_hint = build_frustration_hint(frustration_hits)
+    length_hint = build_length_hint(avg_len)
+
+    adaptive_parts = [h for h in (frustration_hint, length_hint) if h]
+    if adaptive_parts:
+        hints_block = (hints_block + "\n\n" if hints_block else "") + "\n\n".join(adaptive_parts)
 
     extra = ""
     if summaries:

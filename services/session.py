@@ -20,7 +20,7 @@ from utils.constants import MessageType
 
 logger = logging.getLogger(__name__)
 
-MIN_MESSAGES_PER_PHASE = 2
+MIN_MESSAGES_PER_PHASE = 3
 
 
 async def handle_session_message(

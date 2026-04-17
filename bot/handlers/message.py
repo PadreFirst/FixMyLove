@@ -12,7 +12,8 @@ from services.pipeline import process_message
 from bot.handlers.start import handle_onboarding_text
 from services.onboarding import onboarding_state
 from ai.gemini import transcribe_voice
-from utils.text import clean_markdown
+from utils.text import clean_markdown, soften_capslock, split_long_message
+from utils.typing_keeper import TypingKeeper
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -23,6 +24,16 @@ async def _typing(message: Message):
         await message.bot.send_chat_action(chat_id=message.chat.id, action=ChatAction.TYPING)
     except Exception:
         pass
+
+
+async def _send_response(message: Message, response: str):
+    """Clean, soften, split and send a long bot response."""
+    if not response:
+        return
+    cleaned = clean_markdown(response)
+    cleaned = soften_capslock(cleaned)
+    for chunk in split_long_message(cleaned, max_len=700):
+        await message.answer(chunk)
 
 
 @router.message(F.voice)
@@ -54,10 +65,10 @@ async def handle_voice(message: Message, bot: Bot):
             await message.answer("Давай сначала познакомимся — напиши /start")
         return
 
-    text = f"[голосовое сообщение] {text}"
-    response = await process_message(user_id, text)
-    if response:
-        await message.answer(clean_markdown(response))
+    tagged = f"[голосовое сообщение] {text}"
+    async with TypingKeeper(bot, message.chat.id):
+        response = await process_message(user_id, tagged)
+    await _send_response(message, response)
 
 
 @router.message(F.photo)
@@ -70,13 +81,12 @@ async def handle_photo(message: Message, bot: Bot):
         await message.answer("Давай сначала познакомимся — напиши /start")
         return
 
-    await _typing(message)
     caption = message.caption or ""
     text = f"[скриншот переписки] {caption}".strip()
 
-    response = await process_message(user_id, text)
-    if response:
-        await message.answer(clean_markdown(response))
+    async with TypingKeeper(bot, message.chat.id):
+        response = await process_message(user_id, text)
+    await _send_response(message, response)
 
 
 @router.message(F.text)
@@ -102,13 +112,11 @@ async def handle_text(message: Message):
         if has_crisis_markers(message.text or ""):
             from services.crisis import handle_crisis
             response = await handle_crisis(user_id, message.text, user, "suicidal")
-            if response:
-                await message.answer(clean_markdown(response))
+            await _send_response(message, response)
             return
         await message.answer("Давай сначала познакомимся — напиши /start")
         return
 
-    await _typing(message)
-    response = await process_message(user_id, message.text or "")
-    if response:
-        await message.answer(clean_markdown(response))
+    async with TypingKeeper(message.bot, message.chat.id):
+        response = await process_message(user_id, message.text or "")
+    await _send_response(message, response)
